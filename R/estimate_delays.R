@@ -27,11 +27,13 @@ estimate_delays <- function(ascertainment_delay_data,
         delays <- ecdf(ascertainment_delay_data$delay)
     }
 
-    #save choice for time varying or not
-    return(list(
-        delays = delays,
-        time_varying = time_varying
-        )
-    )
+    # #save choice for time varying or not
+    # return(list(
+    #     delays = delays,
+    #     time_varying = time_varying
+    #     )
+    # )
+    #save just the delays
+    return(delays)
 
 }
