@@ -24,7 +24,8 @@ estimate_delays <- function(ascertainment_delay_data,
         delays <- ascertainment_delay_data %>% group_by(days) %>%
             summarise(delay_ecdf = list(ecdf(delay)))
     } else {
-        delays <- ecdf(ascertainment_delay_data$delay)
+        delays <- ascertainment_delay_data %>% group_by(days) %>%
+            summarise(delay_ecdf = list(ecdf(ascertainment_delay_data$delay)))
     }
 
     # #save choice for time varying or not
