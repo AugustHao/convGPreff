@@ -26,7 +26,13 @@ get_convolution_matrix <- function(mass_functions, n) {
             stop("number of mass functions do not match the number of timepoints!")
         } else {
             # apply the matching mass functions to these delays
-            matrix(as.numeric(Map(function(f, x) do.call(f, list(x)), mass_functions, day_diff)), n, n)
+            matrix(as.numeric(mapply(function(f, x) do.call(f, list(x)),
+                                  mass_functions,
+                                  day_diff
+                                  )
+                              ),
+                   n,
+                   n)
         }
     }
 

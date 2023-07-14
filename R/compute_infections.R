@@ -32,7 +32,7 @@ compute_infections <- function(log_effect,
     if (effect_type == "growth_rate") {
         f <- function(init, z) {
             log_rt <- z
-            exp(init + apply(log_rt,2,"cumsum"))
+            exp(init + greta::apply(log_rt,2,"cumsum"))
         }
         N <- f(init, log_effect)
     }
@@ -40,8 +40,8 @@ compute_infections <- function(log_effect,
     if (effect_type == "growth_rate_derivative") {
         f <- function(init, z) {
             log_rt_diff <- z
-            log_rt <- apply(log_rt,2,"cumsum")
-            exp(init + apply(log_rt,2,"cumsum"))
+            log_rt <- greta::apply(log_rt_diff,2,"cumsum")
+            exp(init + greta::apply(log_rt,2,"cumsum"))
         }
         N <- f(init, log_effect)
     }
