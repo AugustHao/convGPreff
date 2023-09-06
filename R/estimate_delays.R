@@ -10,22 +10,22 @@
 #' delay from notification in some interim database to notification in the final dataset --- we need
 #' to keep this use case in mind.
 #'
-#' @param ascertainment_delay_data
+#' @param notification_delay_data
 #' @param time_varying
 #'
 #' @return
 #' @export
 #'
 #' @examples
-estimate_delays <- function(ascertainment_delay_data,
+estimate_delays <- function(notification_delay_data,
                             time_varying = TRUE) {
 
     if (time_varying) {
-        delays <- ascertainment_delay_data %>% group_by(days) %>%
+        delays <- notification_delay_data %>% group_by(days) %>%
             summarise(delay_ecdf = list(ecdf(delay)))
     } else {
-        delays <- ascertainment_delay_data %>% group_by(days) %>%
-            summarise(delay_ecdf = list(ecdf(ascertainment_delay_data$delay)))
+        delays <- notification_delay_data %>% group_by(days) %>%
+            summarise(delay_ecdf = list(ecdf(notification_delay_data$delay)))
     }
 
     # #save choice for time varying or not
