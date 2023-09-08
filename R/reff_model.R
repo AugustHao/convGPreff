@@ -82,19 +82,19 @@ reff_model <- function(data,
 
     m <- model(infections,
                expected_cases,
-               gp_lengthscale,
-               gp_variance)
+               gp_lengthscale)
 
     return(
         list(
             greta_model = m,
-            greta_arrays = greta:::module(
+            greta_arrays = module(
                 gp,
                 infections,
                 expected_cases,
                 expected_cases_obs,
                 gp_lengthscale,
                 gp_variance,
+                gp_kernel,
                 size,
                 prob,
                 size_obs,

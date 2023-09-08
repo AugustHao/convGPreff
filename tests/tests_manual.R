@@ -10,7 +10,7 @@ library(greta)
 library(tensorflow)
 library(greta.dynamics)
 
-
+module <- greta::.internals$utils$misc$module
 # simulate data -----------------------------------------------------------
 
 #load real case count data if using
@@ -74,24 +74,35 @@ test_model <- reff_model(data = test_data)
 # model fitting -----------------------------------------------------------
 
 source("R/generate_valid_inits_and_helpers.R")
+source("R/fit_reff_model.R")
+
+# debugonce(fit_reff_model)
+# test_fit <- fit_reff_model(model = test_model)
+
+
+
 test_init <- generate_valid_inits(model = test_model$greta_model,
                                   chains = 4,
                                   max_tries = 500
                                   )
 
+greta_model <- test_model$greta_model
+greta_arrays <- test_model$greta_arrays
 
-draws <- mcmc(model = test_model$greta_model,
-              warmup = 1000,
-              n_samples = 1000,
-              chains = 4,
-              initial_values = test_init,
-              one_by_one = TRUE # help with numerical issues
-)
+with(greta_arrays,
+     draws <- mcmc(model = greta_model,
+                   warmup = 1000,
+                   n_samples = 1000,
+                   chains = 4,
+                   initial_values = test_init,
+                   one_by_one = TRUE # help with numerical issues
+     ))
+
 #check convergence
 coda::gelman.diag(draws, autoburnin = FALSE, multivariate = FALSE)$psrf[, 1]
 
 
-case_sims <- calculate(test_model$greta_arrays$expected_cases_obs,
+case_sims <- calculate(greta_arrays$expected_cases_obs,
                        values = draws,
                        nsim = 1000)
 
@@ -141,7 +152,7 @@ plot_posterior_timeseries_with_data(simulations = case_sims$expected_cases_obs,
 #
 # View(infections_sim)
 #
-gp_lengthscale_sim <- calculate(test_model$greta_arrays$gp_lengthscale,
+gp_lengthscale_sim <- calculate(greta_arrays$gp_lengthscale,
                                 values = draws,
                                 nsim = 100)
 
