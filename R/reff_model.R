@@ -145,7 +145,7 @@ reff_model <- function(data,
             warning("sampling did not converge according to benchmarks")
         }
 
-        output <- module(output,draws = draws)
+        output <- append(output,module(draws))
     }
 
     return(output)
