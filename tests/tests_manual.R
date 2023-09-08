@@ -22,6 +22,10 @@ local_cases <- reff_data$local$cases
 dates <- reff_data$dates$onset
 states <- reff_data$states
 
+#test with sim data
+local_cases <- readRDS("tests/sim_case_data.RData")
+dates <- seq_len(nrow(local_cases))
+states <- colnames(local_cases)
 #fake some delay data
 set.seed(2023-06-26)
 
@@ -46,9 +50,6 @@ source("R/make_incubation_period_cdf.R")
 source("R/make_ecdf.R")
 incubation_period <- make_incubation_period_cdf(strain = "Omicron")
 
-#fixed CAR for now
-car <- 1
-
 #put together data
 source("R/reff_model_data.R")
 source("R/delay_constructor.R")
@@ -68,42 +69,44 @@ source("R/compute_infections.R")
 source("R/convolve.R")
 source("R/get_convolution_matrix.R")
 source(("R/reff_model.R"))
-#debugonce(reff_model)
-test_model <- reff_model(data = test_data)
+# #debugonce(reff_model)
+# test_model <- reff_model(data = test_data)
 
 # model fitting -----------------------------------------------------------
 
 source("R/generate_valid_inits_and_helpers.R")
 source("R/fit_reff_model.R")
+source("R/converged.R")
+source("R/convergence.R")
 
-# debugonce(fit_reff_model)
-# test_fit <- fit_reff_model(model = test_model)
-
-
-
-test_init <- generate_valid_inits(model = test_model$greta_model,
-                                  chains = 4,
-                                  max_tries = 500
-                                  )
-
-greta_model <- test_model$greta_model
-greta_arrays <- test_model$greta_arrays
-
-with(greta_arrays,
-     draws <- mcmc(model = greta_model,
-                   warmup = 1000,
-                   n_samples = 1000,
-                   chains = 4,
-                   initial_values = test_init,
-                   one_by_one = TRUE # help with numerical issues
-     ))
-
-#check convergence
-coda::gelman.diag(draws, autoburnin = FALSE, multivariate = FALSE)$psrf[, 1]
+debugonce(reff_model)
+test_fit <- reff_model(data = test_data)
 
 
-case_sims <- calculate(greta_arrays$expected_cases_obs,
-                       values = draws,
+
+# test_init <- generate_valid_inits(model = test_model$greta_model,
+#                                   chains = 4,
+#                                   max_tries = 500
+#                                   )
+#
+# greta_model <- test_model$greta_model
+# greta_arrays <- test_model$greta_arrays
+#
+# with(greta_arrays,
+#      draws <- mcmc(model = greta_model,
+#                    warmup = 1000,
+#                    n_samples = 1000,
+#                    chains = 4,
+#                    initial_values = test_init,
+#                    one_by_one = TRUE # help with numerical issues
+#      ))
+#
+# #check convergence
+# coda::gelman.diag(draws, autoburnin = FALSE, multivariate = FALSE)$psrf[, 1]
+
+
+case_sims <- calculate(test_fit$greta_arrays$expected_cases_obs,
+                       values = test_fit$draws,
                        nsim = 1000)
 
 
@@ -111,7 +114,7 @@ case_sims <- calculate(greta_arrays$expected_cases_obs,
 
 #check output
 source("R/plot_posterior_timeseries_with_data.R")
-plot_posterior_timeseries_with_data(simulations = case_sims$expected_cases_obs,
+plot_posterior_timeseries_with_data(simulations = case_sims[[1]],
                                     data_mat = test_data$notification_matrix)
 
 # infections_sims <- calculate(infections[(3+1):(3+n_days),],

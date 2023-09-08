@@ -9,7 +9,13 @@
 #'
 #' @examples
 reff_model <- function(data,
-                       functional_choice = "growth_rate") {
+                       functional_choice = "growth_rate",
+                       fit = TRUE,
+                       init_n_samples = 1000,
+                       iterations_per_step = 1000,
+                       warmup = 500,
+                       max_tries = 1,
+                       n_chains = 4) {
 
     match.arg(functional_choice)
 
@@ -84,25 +90,63 @@ reff_model <- function(data,
                expected_cases,
                gp_lengthscale)
 
-    return(
-        list(
-            greta_model = m,
-            greta_arrays = module(
-                gp,
-                infections,
-                expected_cases,
-                expected_cases_obs,
-                gp_lengthscale,
-                gp_variance,
-                gp_kernel,
-                size,
-                prob,
-                size_obs,
-                prob_obs
-            ),
-            n_burnin = n_burnin,
-            n_days_infection = n_days_infection,
-            obs_idx = obs_idx
-        )
+    output <- list(
+        greta_model = m,
+        greta_arrays = module(
+            gp,
+            infections,
+            expected_cases,
+            expected_cases_obs,
+            gp_lengthscale,
+            gp_variance,
+            gp_kernel,
+            size,
+            prob,
+            size_obs,
+            prob_obs
+        ),
+        n_burnin = n_burnin,
+        n_days_infection = n_days_infection,
+        obs_idx = obs_idx
     )
+
+    if (fit) {
+        #get stable inits
+        init <- generate_valid_inits(model = m,
+                                     chains = n_chains,
+                                     max_tries = 500
+        )
+        # first pass at model fitting
+        draws <- mcmc(
+            m,
+            sampler = hmc(Lmin = 25, Lmax = 30),
+            chains = n_chains,
+            warmup = warmup,
+            n_samples = init_n_samples,
+            initial_values = init,
+            one_by_one = TRUE
+        )
+
+        # if it did not converge, try extending it a bunch more times
+        finished <- converged(draws)
+        tries <- 1
+        while(!finished & tries < max_tries) {
+            draws <- greta::extra_samples(
+                draws,
+                iterations_per_step,
+                one_by_one = TRUE
+            )
+            tries <- tries + 1
+            finished <- converged(draws)
+        }
+
+        # warn if we timed out before converging successfully
+        if (tries == max_tries) {
+            warning("sampling did not converge according to benchmarks")
+        }
+
+        output <- module(output,draws = draws)
+    }
+
+    return(output)
 }
