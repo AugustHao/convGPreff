@@ -9,7 +9,7 @@ convergence <- function(draws) {
     n_eff <- n_eff[n_eff != 0]
 
     cat(sprintf("maximum R-hat: %.2f\nminimum n effective: %.2f",
-                max(r_hats),
+                max(r_hats, na.rm=TRUE),
                 min(n_eff)))
 
     result <- list(r_hats = r_hats,

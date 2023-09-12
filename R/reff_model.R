@@ -11,6 +11,7 @@
 reff_model <- function(data,
                        functional_choice = "growth_rate",
                        fit = TRUE,
+                       extra_stable_inits = TRUE,
                        init_n_samples = 1000,
                        iterations_per_step = 1000,
                        warmup = 500,
@@ -20,8 +21,8 @@ reff_model <- function(data,
     match.arg(functional_choice)
 
     # kernerl hyperparams
-    gp_lengthscale <- greta::lognormal(0, 1) #inverse_gamma(187/9,1157/18)
-    gp_variance <- greta::normal(0, 4, truncation = c(0, Inf))
+    gp_lengthscale <- inverse_gamma(187/9,1157/9) #inverse_gamma(187/9,1157/18)
+    gp_variance <- greta::normal(0, 0.5, truncation = c(0, Inf))
     gp_kernel <- greta.gp::mat52(gp_lengthscale, gp_variance)
 
     #get dimension parameters
@@ -114,18 +115,29 @@ reff_model <- function(data,
         #get stable inits
         init <- generate_valid_inits(model = m,
                                      chains = n_chains,
-                                     max_tries = 500
+                                     max_tries = 1e3
         )
-        # first pass at model fitting
-        draws <- mcmc(
-            m,
-            sampler = hmc(Lmin = 25, Lmax = 30),
-            chains = n_chains,
-            warmup = warmup,
-            n_samples = init_n_samples,
-            initial_values = init,
-            one_by_one = TRUE
-        )
+        # fit with or without manual stable inits
+        if (extra_stable_inits) {
+            draws <- mcmc(
+                m,
+                sampler = hmc(Lmin = 25, Lmax = 30),
+                chains = n_chains,
+                warmup = warmup,
+                n_samples = init_n_samples,
+                initial_values = init,
+                one_by_one = TRUE
+            )
+        } else {
+            draws <- mcmc(
+                m,
+                sampler = hmc(Lmin = 25, Lmax = 30),
+                chains = n_chains,
+                warmup = warmup,
+                n_samples = init_n_samples,
+                one_by_one = TRUE
+            )
+        }
 
         # if it did not converge, try extending it a bunch more times
         finished <- converged(draws)
