@@ -1,6 +1,6 @@
 #test workflow script for new reff model, including codes to load real and
 #simulated data
-
+options(scipen = 10)
 
 library(tidyverse)
 library(greta.gp)
@@ -9,6 +9,9 @@ library(greta)
 #for TF1 version of greta
 library(tensorflow)
 library(greta.dynamics)
+
+source("R/colours.R")
+
 
 module <- greta::.internals$utils$misc$module
 # simulate data -----------------------------------------------------------
@@ -22,16 +25,22 @@ local_cases <- reff_data$local$cases
 dates <- reff_data$dates$onset
 states <- reff_data$states
 
+#subset for faster testing and to get rid of detection drop off (so we fake
+#notification data)
+dates_select <- dates >= "2023-06-01" & dates <= "2023-08-03"
+
+local_cases <- local_cases[dates_select,]
+dates <- dates[dates_select]
 #test with sim data
-local_cases <- readRDS("tests/sim_case_data.RData")
-dates <- seq_len(nrow(local_cases))
-states <- colnames(local_cases)
+# local_cases <- readRDS("tests/sim_case_data.RData")
+# dates <- seq_len(nrow(local_cases))
+# states <- colnames(local_cases)
 #fake some delay data
 set.seed(2023-06-26)
 
 notification_delay_data <- tibble(
     days = sample(seq_along(dates),length(dates)*100,replace = T),
-    delay = ceiling(rnorm(length(dates)*100,mean = 4,sd = 0.5)) #rep(3,n_days*100)
+    delay = ceiling(rnorm(length(dates)*100,mean = 3,sd = 0.5)) #rep(3,n_days*100)
 )
 
 # fake delay ecdf
@@ -49,6 +58,7 @@ lapply(1:5,FUN = function(x){ notification_delay_function_raw$delay_ecdf[x][[1]]
 source("R/make_incubation_period_cdf.R")
 source("R/make_ecdf.R")
 incubation_period <- make_incubation_period_cdf(strain = "Omicron")
+
 
 #put together data
 source("R/reff_model_data.R")
@@ -79,8 +89,14 @@ source("R/fit_reff_model.R")
 source("R/converged.R")
 source("R/convergence.R")
 
-debugonce(reff_model)
-test_fit <- reff_model(data = test_data)
+#debugonce(reff_model)
+test_fit <- reff_model(data = test_data,
+                       functional_choice = "growth_rate",
+                       init_n_samples = 1000,
+                       iterations_per_step = 1000,
+                       warmup = 500,
+                       max_tries =1,
+                       n_chains = 8)
 
 
 
@@ -113,9 +129,101 @@ case_sims <- calculate(test_fit$greta_arrays$expected_cases_obs,
 # case_sims_summary <- apply(case_sims[[1]], 2:3, FUN = "mean")
 
 #check output
-source("R/plot_posterior_timeseries_with_data.R")
-plot_posterior_timeseries_with_data(simulations = case_sims[[1]],
-                                    data_mat = test_data$notification_matrix)
+#source("R/plot_posterior_timeseries_with_data.R")
+# plot_posterior_timeseries_with_data(simulations = case_sims[[1]],
+#                                     data_mat = test_data$notification_matrix
+#                                     )
+
+
+# source("R/forecast_cases.R")
+# debugonce(forecast_cases)
+# case_sims_with_forecast <- forecast_cases(infections = test_fit$greta_arrays$infections,
+#                                           obs_idx = test_fit$obs_idx,
+#                                           notification_delay = test_data$notification_delay,
+#                                           ascertainment = 1,
+#                                           draws = test_fit$draws,
+#                                           forecast_infections = TRUE,
+#                                           gp = test_fit$greta_arrays$gp)
+
+
+
+case_sims_with_forecast <- calculate(test_fit$greta_arrays$expected_cases_forecast,
+                       values = test_fit$draws,
+                       nsim = 1000)
+
+#one off fix
+#case_sims_with_forecast[[1]] <- case_sims_with_forecast[[1]][1:1000,7:76,1:8]
+
+validation_cases <- reff_data$local$cases
+
+dates_select_validation <- reff_data$dates$onset >= "2023-06-01" & reff_data$dates$onset <= "2023-08-10"
+
+validation_dates <- reff_data$dates$onset[dates_select_validation]
+validation_cases <- validation_cases[dates_select_validation,]
+
+validation_dat <- tibble(date = validation_dates)
+validation_dat <- validation_dat %>% cbind(validation_cases)
+
+validation_dat <- validation_dat %>% pivot_longer(cols = 2:9,
+                                                  names_to = "state",
+                                                  values_to = "count")
+
+source("R/plot_timeseries_sims.R")
+#debugonce(plot_notification_sims)
+plot_timeseries_sims(case_sims_with_forecast[[1]],
+                     type = "notification",
+                     dates = dates,
+                     states = states,
+                     case_validation_data = validation_dat,
+                     case_forecast = TRUE)
+
+# plot_posterior_timeseries_with_data(simulations = case_sims_with_forecast[[1]],
+#                                     data_mat = rbind(test_data$notification_matrix,
+#                                         rep(0,4),
+#                                         rep(0,4),
+#                                         rep(0,4),
+#                                         rep(0,4),
+#                                         rep(0,4),
+#                                         rep(0,4)
+#                                     )
+# )
+
+
+infection_sims <- calculate(test_fit$greta_arrays$infections_obs,
+                       values = test_fit$draws,
+                       nsim = 1000)
+
+plot_timeseries_sims(infection_sims[[1]],
+                     type = "infection",
+                     dates = dates,
+                     states = states)
+
+reff_sims <- calculate(test_fit$greta_arrays$r_eff_obs,
+                            values = test_fit$draws,
+                            nsim = 1000)
+
+plot_timeseries_sims(reff_sims[[1]],
+                     type = "reff",
+                     dates = dates,
+                     states = states)
+# plot_posterior_timeseries_with_data(simulations = infection_sims[[1]],
+#                                     data_mat = rbind(
+#                                     rep(0,4),
+#                                     rep(0,4),
+#                                     rep(0,4),
+#                                     rep(0,4),
+#                                     rep(0,4),
+#                                     rep(0,4),
+#                                     # rep(0,4),
+#                                     # rep(0,4),
+#                                     # rep(0,4),
+#                                     # rep(0,4),
+#                                     # rep(0,4),
+#                                     # rep(0,4),
+#                                     # rep(0,4),
+#                                     test_data$notification_matrix
+#                                     )
+# )
 
 # infections_sims <- calculate(infections[(3+1):(3+n_days),],
 #                        values = draws,
@@ -159,10 +267,41 @@ gp_lengthscale_sim <- calculate(test_fit$greta_arrays$gp_lengthscale,
                                 values = test_fit$draws,
                                 nsim = 100)
 
-gp_lengthscale_sim <- apply(gp_lengthscale_sim[[1]], 2:3, FUN = "mean")
+gp_lengthscale_sim_mean <- apply(gp_lengthscale_sim[[1]], 2:3, FUN = "mean")
+
+gp_lengthscale_sim_mean
+
+gp_lengthscale_sim_sd <- apply(gp_lengthscale_sim[[1]], 2:3, FUN = "sd")
+
+gp_lengthscale_sim_sd
 # #
-# gp_variance_sim <- calculate(gp_variance,
-#                              values = draws,
-#                              nsim = 100)
-#
-# gp_variance_sim <- apply(gp_variance_sim[[1]], 2:3, FUN = "mean")
+gp_variance_sim <- calculate(test_fit$greta_arrays$gp_variance,
+                             values = test_fit$draws,
+                             nsim = 100)
+
+gp_variance_sim_mean <- apply(gp_variance_sim[[1]], 2:3, FUN = "mean")
+
+gp_variance_sim_mean
+
+gp_variance_sim_sd <- apply(gp_variance_sim[[1]], 2:3, FUN = "sd")
+
+gp_variance_sim_sd
+
+
+
+gp_sim <- calculate(test_fit$greta_arrays$gp,
+                             values = test_fit$draws,
+                             nsim = 100)
+
+gp_sim_mean <- apply(gp_sim[[1]], 2:3, FUN = "mean")
+
+
+gp_forecast_sim <- calculate(project(test_fit$greta_arrays$gp,x_new = 78:83),values = test_fit$draws,nsim = 100)
+
+gp_forecast_sim_mean <- apply(gp_forecast_sim[[1]], 2:3, FUN = "mean")
+
+gp_forecast_sim_sd <- apply(gp_forecast_sim[[1]], 2:3, FUN = "sd")
+
+gelman_rubin <- coda::gelman.diag(test_fit$draws, autoburnin = FALSE, multivariate = FALSE)$psrf[, 1]
+gelman_rubin_tib <- tibble(name = names(gelman_rubin), val = gelman_rubin)
+View(gelman_rubin_tib)
