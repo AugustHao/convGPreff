@@ -22,7 +22,7 @@ plot_posterior_timeseries_with_data <- function(simulations,
     for (i in 1:n_jurisdictions) {
         plot(simulations[1, , i] ~ time_at,
              type = "n",
-             ylim = c(0, max(data_mat) * 2),
+             #ylim = c(0, max(data_mat) * 2),
              xlab = "",
              ylab = "N",
              las = 1)
